@@ -1,0 +1,93 @@
+# olixops 默认配置文件
+#
+# 加载优先级 (从低到高):
+#   1. 代码内默认值 (internal/config/config.go: setDefaults)
+#   2. 本文件
+#   3. 环境变量 (前缀 OLIXOPS_, 层级用 _ 分隔, 例如 OLIXOPS_DATABASE_HOST)
+#
+# 注意: 生产环境建议把敏感字段 (jwt_secret / database.password / redis.password)
+# 通过环境变量注入, 不要把真实凭据提交到 git。
+
+app:
+  name: olixops
+  env: dev                # dev / test / sim / prod
+  version: 0.0.1
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug             # debug / release / test
+  read_timeout: 15s
+  write_timeout: 15s
+  idle_timeout: 60s
+  shutdown_timeout: 10s   # 收到 SIGTERM 后等待排空的最大时长
+
+log:
+  level: info             # debug / info / warn / error
+  format: console         # console / json (生产推荐 json, dev 用 console 带颜色)
+  output: stdout          # stdout / stderr / file
+  # file_path: /var/log/olixops/app.log   # output=file 时必填
+  max_size: 100           # 单文件最大 MB
+  max_backups: 7
+  max_age: 30             # 保留天数
+  compress: true          # 归档文件是否 gzip
+
+database:
+  driver: postgres
+  host: 192.168.1.110
+  port: 5432
+  user: olixops
+  password: olixops
+  database: olixops
+  ssl_mode: disable       # 生产建议 require
+  timezone: Asia/Shanghai
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime: 1h
+  conn_max_idle_time: 30m
+  auto_migrate: false     # 生产禁止自动迁移
+  log_level: warn         # silent / error / warn / info
+
+redis:
+  addr: 192.168.1.110:6379
+  password: ""            # 无密码留空
+  db: 0
+  pool_size: 32
+  min_idle_conns: 4
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+
+auth:
+  # jwt_secret 必须至少 32 字节随机串; dev 环境可省略, prod 环境启动时会强制校验
+  # jwt_secret: "change-me-in-production-use-strong-random-secret"
+  access_token_ttl: 2h
+  refresh_token_ttl: 720h
+  issuer: olixops
+  allow_password_login: true
+  password_min_length: 8
+  oauth2_provider: ""                  # keycloak / dex / github 等
+  oauth2_client_id: ""
+  oauth2_client_secret: ""
+  oauth2_discovery_url: ""
+  oauth2_redirect_url: ""
+  oauth2_scopes:
+    - openid
+    - profile
+    - email
+
+storage:
+  driver: local           # local / s3 / minio
+  local_dir: ./data/files
+  endpoint: ""            # s3 / minio 时填 (如 https://s3.amazonaws.com)
+  bucket: ""
+  region: ""
+  access_key_id: ""
+  secret_access_key: ""
+  use_ssl: true
+
+
+env_vault:
+  url: http://localhost:8880
+  projectId:
+
