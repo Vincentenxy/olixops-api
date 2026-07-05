@@ -1,0 +1,59 @@
+# Binaries and compiled artifacts
+/bin/
+/dist/
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+/*.test
+/*.out
+/main  # 如果你的主包名为 main，编译后会产生该文件，建议忽略
+
+# Dependency management
+/vendor/           # 如果使用 Go Modules (推荐)，vendor 目录不应提交
+/go.sum            # 如果团队一致，可以提交 go.sum 以保证一致性，但有些人倾向于忽略
+/go.mod            # go.mod 应该提交，这里不忽略它
+
+# Test and coverage
+/*.cover
+/*.coverprofile
+/coverage.html
+/coverage.out
+/profile.cov
+
+# Go workspace file (Go 1.18+)
+/go.work
+/go.work.sum
+
+# IDE and editor files
+/.idea/
+/.vscode/
+/*.swp
+/*.swo
+*~
+.DS_Store
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment and secret files
+/.env
+/.env.local
+/.env.*.local
+/*.pem
+/*.key
+/*.crt
+
+# Logs and databases
+/logs/
+/*.log
+/*.db
+/*.sqlite
+/*.sqlite3
+
+# Temporary files
+/tmp/
+/temp/

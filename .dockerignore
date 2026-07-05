@@ -1,0 +1,95 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Version control systems
+.svn/
+.hg/
+
+# Build artifacts and binaries
+/bin/
+/dist/
+/build/
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+/*.test
+/*.out
+/main
+/cmd/*/main   # 如果你有多个微服务在 cmd/ 下
+
+# Dependency cache (会在容器内重新下载)
+/vendor/
+go.sum       # 注意：如果你需要离线构建，可以保留，但通常建议忽略
+
+# Test and coverage
+/*.cover
+/*.coverprofile
+/coverage.html
+/coverage.out
+/profile.cov
+/*_test.go   # 测试文件不应进入镜像（除非你需要测试工具）
+
+# IDE and editor files
+/.idea/
+/.vscode/
+/*.swp
+/*.swo
+*~
+.DS_Store
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment and secret files
+/.env
+/.env.local
+/.env.*.local
+/*.pem
+/*.key
+/*.crt
+/secrets/
+/credentials/
+
+# Logs and databases
+/logs/
+/*.log
+/*.db
+/*.sqlite
+/*.sqlite3
+/tmp/
+/temp/
+
+# Documentation (不需要进入镜像)
+/docs/
+/README.md
+/CHANGELOG.md
+/LICENSE
+/*.md       # 如果有大量 markdown 文件
+
+# CI/CD files
+/.github/
+/.gitlab/
+/.travis.yml
+/.circleci/
+/Jenkinsfile
+/docker-compose*.yml
+/docker-compose*.yaml
+
+# Go workspace files
+/go.work
+/go.work.sum
+
+# Example configs (除非需要打包配置)
+/*.example
+/configs/*.example
+
+# Misc
+/.air.toml   # 热加载工具配置（开发用）
+/.envrc      # direnv 配置
+.direnv/
