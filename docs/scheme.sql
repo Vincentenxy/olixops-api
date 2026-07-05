@@ -61,3 +61,52 @@ COMMENT ON COLUMN cluster.k8s_version IS '集群K8s版本号，如v1.28.2';
 COMMENT ON COLUMN cluster.created_at IS '集群录入时间，自动填充';
 COMMENT ON COLUMN cluster.updated_at IS '集群信息最后修改时间，自动更新';
 COMMENT ON COLUMN cluster.deleted_at IS '软删除时间，NULL代表有效数据';
+
+
+
+
+
+
+
+
+
+
+
+
+        
+-- 开启uuid扩展（仅首次执行）
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 用户主表
+CREATE TABLE "users" (
+                         "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                         "username" VARCHAR(64) NOT NULL,
+                         "email" VARCHAR(255),
+                         "display_name" VARCHAR(128),
+                         "password_hash" VARCHAR(255),
+                         "phone_number" VARCHAR(32),
+                         "avatar_url" VARCHAR(512),
+                         "status" VARCHAR(16) NOT NULL DEFAULT 'active',
+                         "source" VARCHAR(32) DEFAULT 'local',
+                         "external_id" VARCHAR(255),
+                         "last_login_at" TIMESTAMPTZ,
+                         "last_login_ip" VARCHAR(64),
+                         "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                         "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                         "deleted_at" TIMESTAMPTZ
+);
+
+-- 唯一索引：用户名
+CREATE UNIQUE INDEX idx_users_username ON "users" ("username");
+-- 唯一索引：邮箱
+CREATE UNIQUE INDEX idx_users_email ON "users" ("email");
+-- 普通索引：状态筛选
+CREATE INDEX idx_users_status ON "users" ("status");
+-- 普通索引：第三方外部ID
+CREATE INDEX idx_users_external_id ON "users" ("external_id");
+-- 软删除索引（GORM 软删除必备，查询自动过滤deleted_at不为null）
+CREATE INDEX idx_users_deleted_at ON "users" ("deleted_at");
+
+-- 联合唯一防重复（可选：username+deleted_at，软删除后可重名）
+CREATE UNIQUE INDEX idx_users_username_del ON "users" ("username") WHERE "deleted_at" IS NULL;
+CREATE UNIQUE INDEX idx_users_email_del ON "users" ("email") WHERE "deleted_at" IS NULL;

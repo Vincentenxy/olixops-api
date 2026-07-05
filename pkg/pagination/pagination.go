@@ -1,31 +1,24 @@
-// Package pagination 抽象列表分页参数。
+// Package pagination 抽象列表分页基础参数，仅提供页码、页大小能力
 package pagination
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	defaultPage     = 1
+	defaultPageNum  = 1
 	defaultPageSize = 20
 	maxPageSize     = 200
 )
 
-// Query 是分页查询参数。
 type Query struct {
-	Page     int    `form:"page"`
-	PageSize int    `form:"page_size"`
-	Keyword  string `form:"keyword"`
-	OrderBy  string `form:"order_by"`
-	Order    string `form:"order"` // asc / desc
+	PageNum  int `json:"pageNum" form:"pageNum" binding:"min=1"`
+	PageSize int `json:"pageSize" form:"pageSize" binding:"min=1,max=100"`
 }
 
-// Normalize 将参数限制在合理范围。
 func (q *Query) Normalize() {
-	if q.Page <= 0 {
-		q.Page = defaultPage
+	if q.PageNum < defaultPageNum {
+		q.PageNum = defaultPageNum
 	}
 	if q.PageSize <= 0 {
 		q.PageSize = defaultPageSize
@@ -33,34 +26,29 @@ func (q *Query) Normalize() {
 	if q.PageSize > maxPageSize {
 		q.PageSize = maxPageSize
 	}
-	if q.Order != "desc" {
-		q.Order = "asc"
-	}
 }
 
-// Offset 计算 SQL OFFSET。
 func (q Query) Offset() int {
-	if q.Page <= 1 {
+	if q.PageNum <= 1 {
 		return 0
 	}
-	return (q.Page - 1) * q.PageSize
+	return (q.PageNum - 1) * q.PageSize
 }
 
-// Limit 返回 SQL LIMIT。
-func (q Query) Limit() int { return q.PageSize }
+func (q Query) Limit() int {
+	return q.PageSize
+}
 
-// FromGin 从 Gin context 解析参数,Bind 失败时退回默认值。
-func FromGin(c *gin.Context) Query {
-	q := Query{}
-	if err := c.ShouldBindQuery(&q); err != nil {
-		page, _ := strconv.Atoi(c.Query("page"))
-		size, _ := strconv.Atoi(c.Query("page_size"))
-		q.Page = page
-		q.PageSize = size
-		q.Keyword = c.Query("keyword")
-		q.OrderBy = c.Query("order_by")
-		q.Order = c.Query("order")
-	}
+// Get 请求使用
+// FromGin 从gin url query解析分页参数，解析失败自动使用默认值
+func FromGin(c *gin.Context) *Query {
+	var q Query
+	_ = c.ShouldBindQuery(&q)
 	q.Normalize()
-	return q
+	return &q
+}
+
+type PageResult[T any] struct {
+	Total int64 `json:"total"`
+	List  []T   `json:"list"`
 }

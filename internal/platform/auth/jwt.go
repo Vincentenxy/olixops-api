@@ -12,13 +12,17 @@ import (
 	"olixops/internal/config"
 )
 
-// JWTIssuer 是基于 HMAC-SHA256 的默认 TokenIssuer 实现。
+// JWTIssuer 是基于 HMAC-SHA256 的默认 TokenIssuer 实现
 type JWTIssuer struct {
-	cfg config.AuthConfig
+	cfg *config.AuthConfig
 }
 
+// 编译期断言: JWTIssuer 必须实现 TokenIssuer interface.
+// 加新方法时编译器立刻报错, 不用等业务代码用到才发现.
+var _ TokenIssuer = (*JWTIssuer)(nil)
+
 // NewJWTIssuer 构造默认 JWT 签发器。
-func NewJWTIssuer(cfg config.AuthConfig) *JWTIssuer {
+func NewJWTIssuer(cfg *config.AuthConfig) *JWTIssuer {
 	return &JWTIssuer{cfg: cfg}
 }
 
@@ -58,7 +62,8 @@ func (j *JWTIssuer) Issue(_ context.Context, sub Subject) (TokenPair, error) {
 		TokenUse: "access",
 	})
 	if err != nil {
-		return TokenPair{}, err
+		return TokenPair{},
+			err
 	}
 
 	refresh, err := j.signClaims(jwtClaims{
@@ -101,7 +106,7 @@ func (j *JWTIssuer) Verify(_ context.Context, accessToken string) (Subject, erro
 	return j.subjectFromClaims(claims), nil
 }
 
-// Refresh 用 refresh token 换取新的 token pair。
+// Refresh 用 refresh token 换取新的 token pair
 func (j *JWTIssuer) Refresh(ctx context.Context, refreshToken string) (TokenPair, error) {
 	claims, err := j.parse(refreshToken)
 	if err != nil {

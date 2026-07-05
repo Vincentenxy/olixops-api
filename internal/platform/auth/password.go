@@ -7,6 +7,9 @@ type BcryptHasher struct {
 	Cost int
 }
 
+// 编译期断言: BcryptHasher 必须实现 PasswordHasher interface.
+var _ PasswordHasher = (*BcryptHasher)(nil)
+
 // NewBcryptHasher 构造哈希器。cost <= 0 时使用 bcrypt 默认值 10。
 func NewBcryptHasher(cost int) *BcryptHasher {
 	if cost <= 0 {

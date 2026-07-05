@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"olixops/internal/platform/cryptox/envvault"
+	"olixops/initialize"
+	"olixops/internal/modules/cluster"
+	"olixops/internal/platform/audit"
 	"os"
 	"os/signal"
 	"strings"
@@ -23,7 +25,6 @@ import (
 	"olixops/internal/interfaces/http/router"
 	"olixops/internal/modules/health"
 	"olixops/internal/modules/user"
-	"olixops/internal/platform/audit"
 	"olixops/internal/platform/auth"
 	"olixops/internal/platform/database"
 	"olixops/internal/platform/logger"
@@ -31,13 +32,13 @@ import (
 
 // Run 启动 HTTP 服务,阻塞直到收到 SIGINT/SIGTERM 后优雅关闭。
 func Run() error {
-	// 1) 加载配置
+	// 1. init config
 	cfg, err := config.Load("")
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// 2) 初始化全局 logger
+	// 2. init logger
 	lg, err := logger.New(cfg.Log, cfg.App.Name, cfg.App.Env)
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
@@ -51,56 +52,62 @@ func Run() error {
 		zap.String("addr", cfg.Server.Addr()),
 	)
 
-	// 3) 数据库
+	// 3. init db
 	db, err := database.New(cfg.Database, lg)
 	if err != nil {
-		return fmt.Errorf("init database: %w", err)
+		lg.Fatal("init database failed", zap.Error(err))
 	}
 	if cfg.Database.AutoMigrate {
 		if err := db.AutoMigrate(&user.User{}); err != nil {
 			return fmt.Errorf("automigrate user: %w", err)
 		}
-		lg.Info("automigrate user done")
+		lg.Info("auto migrate user done")
 	}
 
-	// 4) 密钥管理平台
+	// 4. env vault
 	ctx := context.Background()
-	envvault.NewLoader(ctx, cfg.EnvVault)
+	// envvault.NewLoader(ctx, cfg.EnvVault)
+
+	// 5. initialize
+	initialize.InitValidator()
+
+	// 4. recoder
+	// TODO platform/audit 下面
 
 	// 3.5) 加密服务 (DEK 来自 envVault 或环境变量, 用于加密 kubeconfig / 敏感字段).
 	//
 	// 当前 cryptox.New / envvault.NewLoader / envvault.LoadKey 都还是 TODO,
 	// 这一段先调本地 initCrypto 占位, 等子模块实现好之后替换内部逻辑.
-	cryptoSvc, err := initCrypto(ctx, cfg.EnvVault, lg)
-	if err != nil {
-		return fmt.Errorf("init crypto: %w", err)
-	}
-	_ = cryptoSvc // 暂时 unused, 后续 cluster service 注入
+	//cryptoSvc, err := initCrypto(ctx, cfg.EnvVault, lg)
+	//if err != nil {
+	//	return fmt.Errorf("init crypto: %w", err)
+	//}
+	//_ = cryptoSvc // 暂时 unused, 后续 cluster service 注入
 
-	// 4) 平台服务
-	issuer := auth.NewJWTIssuer(cfg.Auth)
-	hasher := auth.NewBcryptHasher(0)
+	// 相关平台服务
+	issuer := auth.NewJWTIssuer(&cfg.Auth)
 	recorder := audit.NewMemRecorder(1000, lg)
+	cookieManager := auth.NewCookieManager(&cfg.CookieConfig)
 
-	// 5) user 模块
-	userRepo := user.NewRepository(db)
-	userSvc := user.NewService(userRepo, hasher, issuer)
-	userHandler := user.NewHandler(userSvc, recorder)
-	userModule := user.NewModule(userHandler, recorder)
-
-	// 6) dev / test 环境 seed 一个测试用户 (登录演示用)
-	if isSeedEnv(cfg.App.Env) {
-		if err := seedDevUser(context.Background(), userRepo, hasher, "alice", "password123"); err != nil {
-			lg.Warn("seed dev user failed", zap.Error(err))
-		}
+	// user module
+	userModule, err := user.Assemble(db, recorder, issuer, cookieManager)
+	if err != nil {
+		lg.Fatal("assemble user module failed", zap.Error(err))
 	}
 
-	// 7) router
+	// cluster module
+	clusterModule, err := cluster.Assemble(db, recorder, &cfg.K8sConfig)
+	if err != nil {
+		lg.Fatal("assemble cluster module failed", zap.Error(err))
+	}
+
+	// 7. routers
 	modules := []router.ModuleRoutes{
 		health.New(),
+		clusterModule,
 		userModule,
 	}
-	r := router.New(modules, issuer)
+	r := router.New(modules, issuer, cookieManager)
 
 	// 8) http server
 	srv := &http.Server{

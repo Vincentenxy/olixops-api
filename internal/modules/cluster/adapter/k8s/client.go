@@ -8,9 +8,6 @@
 //
 // 当前文件是骨架, 方法签名写好, TODO 部分是待实现逻辑。
 //
-// Build tag: 本包默认不编译, 等用户学到 Step 8 装好 k8s SDK 后, 去掉这行 build tag。
-//go:build ignore
-// +build ignore
 
 package k8s
 
@@ -26,11 +23,24 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+
+
+
 // K8sClient 基于 client-go 的真实实现。
 type K8sClient struct {
-	clientset *kubernetes.Clientset
+	clientSet *kubernetes.Clientset
 	restCfg   *rest.Config
 }
+
+
+k8sClientMap := make(map[string]*K8sClient)
+func (f *Factory) Build(ctx context.Context, kubeconfig string) (adapter.K8sClient, error) {
+
+	k8sClientMap[] NewClient(kubeconfig)
+
+	return nil, fmt.Errorf("not implemented")
+}
+
 
 // 编译期断言: K8sClient 必须实现 adapter.K8sClient。
 var _ adapter.K8sClient = (*K8sClient)(nil)
@@ -52,9 +62,9 @@ type Factory struct{}
 
 // Build 实现 adapter.Factory。
 func (f *Factory) Build(ctx context.Context, kubeconfig string) (adapter.K8sClient, error) {
-	// TODO: 调 NewClient
-	_ = ctx
-	_ = kubeconfig
+
+	k8sClientMap[] NewClient(kubeconfig)
+
 	return nil, fmt.Errorf("not implemented")
 }
 

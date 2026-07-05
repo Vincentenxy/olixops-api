@@ -13,12 +13,12 @@ import (
 //
 // 第一阶段只读, 写入操作归 application 或 helm 模块。
 type WorkloadService struct {
-	repo    repository.ClusterRepository
+	repo    repository.ClusterRepo
 	factory adapter.Factory
 }
 
 // NewWorkloadService 构造服务。
-func NewWorkloadService(repo repository.ClusterRepository, factory adapter.Factory) *WorkloadService {
+func NewWorkloadService(repo repository.ClusterRepo, factory adapter.Factory) *WorkloadService {
 	return &WorkloadService{repo: repo, factory: factory}
 }
 

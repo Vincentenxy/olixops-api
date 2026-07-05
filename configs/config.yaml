@@ -36,8 +36,8 @@ database:
   driver: postgres
   host: 192.168.1.110
   port: 5432
-  user: olixops
-  password: olixops
+  user: admin
+  password: 123456
   database: olixops
   ssl_mode: disable       # 生产建议 require
   timezone: Asia/Shanghai
@@ -60,7 +60,7 @@ redis:
 
 auth:
   # jwt_secret 必须至少 32 字节随机串; dev 环境可省略, prod 环境启动时会强制校验
-  # jwt_secret: "change-me-in-production-use-strong-random-secret"
+  jwt_secret: "change-me-in-production-use-strong-random-secret"
   access_token_ttl: 2h
   refresh_token_ttl: 720h
   issuer: olixops
@@ -76,6 +76,15 @@ auth:
     - profile
     - email
 
+cookie_config:
+  path: "/"
+  domain: "iphotofans.com"
+  max_age: 3600
+  secure: true
+  http_only: true
+  same_site: "Lax"   # 可选: Lax / Strict / None
+
+
 storage:
   driver: local           # local / s3 / minio
   local_dir: ./data/files
@@ -85,6 +94,11 @@ storage:
   access_key_id: ""
   secret_access_key: ""
   use_ssl: true
+
+
+k8s_config:
+  secret_key: 1231233e32423423425423asdfasdfasdfwefewfsdf
+
 
 
 env_vault:

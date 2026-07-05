@@ -37,7 +37,7 @@ func EncryptAESGCM(key, plaintext []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(out), nil
 }
 
-// DecryptAESGCM 反向操作。
+// DecryptAESGCM 反向操作
 func DecryptAESGCM(key []byte, encoded string) ([]byte, error) {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {

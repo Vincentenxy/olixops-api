@@ -1,7 +1,12 @@
 package handler
 
 import (
-	"modules/cluster/service"
+	"errors"
+	"olixops/internal/config"
+	"olixops/internal/modules/cluster/domain"
+	"olixops/internal/modules/cluster/service"
+	"olixops/pkg/cryptox"
+	"olixops/pkg/errs"
 	"olixops/pkg/httpx"
 	"olixops/pkg/pagination"
 
@@ -10,48 +15,93 @@ import (
 
 // ClusterHandler 集群 HTTP 入口。
 type ClusterHandler struct {
-	svc *service.ClusterService
+	svc       *service.ClusterService
+	k8sConfig *config.K8sConfig
 }
 
 // NewClusterHandler 构造 handler
-func NewClusterHandler(svc *service.ClusterService) *ClusterHandler {
+func NewClusterHandler(svc *service.ClusterService, k8sConfig *config.K8sConfig) *ClusterHandler {
 	return &ClusterHandler{
-		svc: svc,
+		svc:       svc,
+		k8sConfig: k8sConfig,
 	}
 }
 
 type ClusterCreateReq struct {
-	ID             string `json:"id" binding:"required"`
-	TenantID       string `json:"tenantId" binding:"required"`
-	Env            string `json:"env" binding:"required"`
-	Description    string `json:"description" binding:"required"`
-	KubeConfigPath string `json:"kubeConfigPath" binding:"required"`
+	ID          string `json:"id" binding:"required"`
+	TenantID    string `json:"tenantId" binding:"required"`
+	Env         string `json:"env" binding:"required"`
+	Description string `json:"description" binding:"required"`
+	KubeConfig  string `json:"kubeConfig" binding:"required"`
 }
 
-// create POST /api/v1/clusters
-func (h *ClusterHandler) create(c *gin.Context) {
+// Create POST /api/v1/k8s/cluster/create
+func (h *ClusterHandler) Create(c *gin.Context) {
 	var req ClusterCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httpx.Fail()
+		httpx.Fail(c, errs.InvalidArg("invalid request: %v", err))
+		return
 	}
-	h.svc
+
+	aesgcm, err := cryptox.EncryptAESGCM([]byte(h.k8sConfig.SecretKey), []byte(req.KubeConfig))
+	if err != nil {
+		httpx.Fail(c, errors.New("save k8s info error!"))
+		return
+	}
+
+	cluster, err := h.svc.Create(c.Request.Context(), service.CreateInput{
+		ID:          req.ID,
+		TenantID:    req.TenantID,
+		Environment: req.Env,
+		Description: req.Description,
+		Kubeconfig:  aesgcm,
+	})
+	if err != nil {
+		httpx.Fail(c, err)
+	}
+	httpx.OK[*domain.Cluster](c, cluster)
+	return
 }
 
-// list GET /api/v1/clusters
-func (h *ClusterHandler) list(c *gin.Context) {
-	// TODO:
-	//   1. q := pagination.FromGin(c)
-	//   2. filter := repository.ListFilter{
-	//        Status: domain.ClusterStatus(c.Query("status")),
-	//        Environment: c.Query("environment"),
-	//      }
-	//   3. items, total, err := h.svc.List(c.Request.Context(), q, filter)
-	//   4. httpx.Paged(c, items, total, q.Page, q.PageSize)
-	_ = c
+type ClusterListReq struct {
+	pagination.Query
+	TenantID string `form:"tenantId" `
+	Env      string `form:"env" `
+	Status   string `form:"status" `
 }
 
-// get GET /api/v1/clusters/:id
-func (h *ClusterHandler) get(c *gin.Context) {
+// List POST /api/v1/clusters
+func (h *ClusterHandler) List(c *gin.Context) {
+	var req ClusterListReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Fail(c, errs.InvalidArg("invalid request: %v", err))
+	}
+
+	req.Normalize()
+
+	filter := &domain.ClusterListFilter{
+		Query: pagination.Query{
+			PageNum:  req.PageNum,
+			PageSize: req.PageSize,
+		},
+		TenantID: req.TenantID,
+		Env:      req.Env,
+		Status:   req.Status,
+	}
+	list, total, err := h.svc.List(c.Request.Context(), filter)
+	if err != nil {
+		httpx.Fail(c, err)
+		return
+	}
+
+	httpx.OK(c, pagination.PageResult[*domain.Cluster]{
+		Total: total,
+		List:  list,
+	})
+}
+
+// Get GET /api/v1/clusters/:id
+func (h *ClusterHandler) Get(c *gin.Context) {
 	// TODO: h.svc.Get(ctx, c.Param("id")) → httpx.OK
 	_ = c
 }
@@ -76,4 +126,3 @@ func (h *ClusterHandler) delete(c *gin.Context) {
 
 // 编译期防止 pagination import 未用
 var _ = pagination.FromGin
-var _ = httpx.OK

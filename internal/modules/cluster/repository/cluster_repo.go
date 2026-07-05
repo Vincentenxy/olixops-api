@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"modules/cluster/domain"
+	"olixops/internal/modules/cluster/domain"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,26 +12,20 @@ type clusterRepo struct {
 	db *gorm.DB
 }
 
-func NewClusterRepo(db *gorm.DB) ClusterRepo {
-	return &clusterRepo{
-		db: db,
-	}
-}
-
 func (cr *clusterRepo) Create(ctx context.Context, cluster *domain.Cluster) error {
 	return cr.db.WithContext(ctx).Create(cluster).Error
 }
 
-func (cr *clusterRepo) List(ctx context.Context, tenantId, env string, status domain.ClusterStatus, offset, limit int) ([]*domain.Cluster, int64, error) {
+func (cr *clusterRepo) List(ctx context.Context, filter *domain.ClusterListFilter) ([]*domain.Cluster, int64, error) {
 	tx := cr.db.WithContext(ctx)
-	if tenantId != "" {
-		tx = tx.Where("tenant_id = ?", tenantId)
+	if filter.TenantID != "" {
+		tx = tx.Where("tenant_id = ?", filter.TenantID)
 	}
-	if env != "" {
-		tx = tx.Where("env = ?", env)
+	if filter.Env != "" {
+		tx = tx.Where("env = ?", filter.Env)
 	}
-	if status != "" {
-		tx = tx.Where("status = ?", status)
+	if filter.Status != "" {
+		tx = tx.Where("status = ?", filter.Status)
 	}
 
 	var total int64
@@ -42,7 +36,7 @@ func (cr *clusterRepo) List(ctx context.Context, tenantId, env string, status do
 
 	// page
 	var list []*domain.Cluster
-	err = tx.Order("created_at desc").Offset(offset).Limit(limit).Find(&list).Error
+	err = tx.Order("created_at desc").Offset(filter.Offset()).Limit(filter.Limit()).Find(&list).Error
 	return list, total, err
 }
 
@@ -69,4 +63,10 @@ func (cr *clusterRepo) GetByID(ctx context.Context, id string) (*domain.Cluster,
 		return nil, err
 	}
 	return &c, nil
+}
+
+func NewClusterRepo(db *gorm.DB) ClusterRepo {
+	return &clusterRepo{
+		db: db,
+	}
 }

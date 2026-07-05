@@ -22,23 +22,23 @@ import (
 
 // New 根据已注册模块构造 gin.Engine。
 // issuer 用于在 priv 分组挂 Auth 中间件; pub 分组不挂。
-func New(modules []ModuleRoutes, issuer auth.TokenIssuer) *gin.Engine {
+func New(modules []ModuleRoutes, issuer auth.TokenIssuer, cookieManager *auth.CookieManager) *gin.Engine {
 	r := gin.New()
 
 	// 全局中间件
 	r.Use(middleware.Trace())
 	r.Use(middleware.AccessLog())
 
-	pub := r.Group("/api/pub/v1")
-	priv := r.Group("/api/v1")
-	priv.Use(middleware.Auth(issuer))
+	pub := r.Group("/api/pub")
+	pri := r.Group("/api")
+	pri.Use(middleware.Auth(issuer, cookieManager))
 
 	for _, m := range modules {
 		logger.L().Info("register http module",
 			zap.String("module", m.Name()),
 		)
 		m.RegisterPub(pub)
-		m.RegisterPrivate(priv)
+		m.RegisterPrivate(pri)
 	}
 	return r
 }

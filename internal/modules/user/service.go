@@ -11,7 +11,6 @@ import (
 
 	"olixops/internal/platform/auth"
 	"olixops/pkg/errs"
-	"olixops/pkg/pagination"
 )
 
 // CreateInput 是创建用户的入参。
@@ -47,7 +46,11 @@ type Service struct {
 // NewService 构造服务。
 // issuer 用于 Login / Refresh 签发 token pair; 第一阶段必须有, 后续 OAuth 接入时复用。
 func NewService(repo Repository, hasher auth.PasswordHasher, issuer auth.TokenIssuer) *Service {
-	return &Service{repo: repo, hasher: hasher, issuer: issuer}
+	return &Service{
+		repo:   repo,
+		hasher: hasher,
+		issuer: issuer,
+	}
 }
 
 // Create 创建用户。
@@ -94,8 +97,8 @@ func (s *Service) Get(ctx context.Context, id string) (*User, error) {
 }
 
 // List 列表查询。
-func (s *Service) List(ctx context.Context, q pagination.Query, filter ListFilter) ([]*User, int64, error) {
-	return s.repo.List(ctx, q, filter)
+func (s *Service) List(ctx context.Context, filter ListFilter) ([]*User, int64, error) {
+	return s.repo.List(ctx, filter)
 }
 
 // Update 更新基础信息。

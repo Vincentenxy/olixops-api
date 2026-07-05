@@ -22,28 +22,34 @@ type PagedData struct {
 }
 
 func (resp *Response[T]) IsSuccess() bool {
-	return resp.Code == Ok
+	return resp.Code == CodeSuccess
 }
 
 func (resp *Response[T]) IsFailed() bool {
-	return resp.Code != Ok
+	return resp.Code != CodeSuccess
 }
 
 // 成功响应
 func OK[T any](c *gin.Context, data T) {
-	OKWithMsg(c, metaMap[Ok].msg, data)
+	OKWithMsg(c, metaMap[CodeSuccess].msg, data)
 }
 
+// 自定义消息成功响应
 func OKWithMsg[T any](c *gin.Context, msg string, data T) {
 	c.JSON(http.StatusOK, Response[T]{
-		Code: Ok,
+		Code: CodeSuccess,
 		Msg:  msg,
 		Data: data,
 	})
 }
 
 // 失败响应
-func Fail(c *gin.Context, code int, err error) {
+func Fail(c *gin.Context, err error) {
+	FailWithCode(c, CodeFail, err)
+}
+
+// 带错误码的失败响应
+func FailWithCode(c *gin.Context, code int, err error) {
 	c.JSON(http.StatusOK, Response[any]{
 		Code: code,
 		Msg:  err.Error(),

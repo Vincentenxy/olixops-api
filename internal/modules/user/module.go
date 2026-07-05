@@ -16,9 +16,12 @@
 package user
 
 import (
-	"github.com/gin-gonic/gin"
-
 	"olixops/internal/interfaces/http/router"
+	"olixops/internal/platform/auth"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"olixops/internal/platform/audit"
 )
 
@@ -28,34 +31,67 @@ type Module struct {
 	recorder audit.Recorder
 }
 
-// NewModule 构造 user 模块。
+// NewModule 构造 user 模块
 func NewModule(h *Handler, recorder audit.Recorder) *Module {
-	return &Module{h: h, recorder: recorder}
+	return &Module{
+		h:        h,
+		recorder: recorder,
+	}
 }
 
-// 编译期断言: Module 必须满足 router.ModuleRoutes。
-var _ router.ModuleRoutes = (*Module)(nil)
+func Assemble(db *gorm.DB, recoder audit.Recorder, issuer *auth.JWTIssuer, cookieManager *auth.CookieManager) (*Module, error) {
+	serv := NewService(
+		NewRepository(db),
+		auth.NewBcryptHasher(10),
+		issuer,
+	)
+	handler := NewHandler(serv, recoder, cookieManager)
+	return NewModule(handler, recoder), nil
+}
 
-// Name 返回模块名, 用于启动日志。
+// Name 返回模块名, 用于启动日志
 func (m *Module) Name() string { return "user" }
 
-// RegisterPub 挂载免鉴权路由到 /api/pub/v1。
+// RegisterPub 挂载免鉴权路由到 /api/pub/v1
 func (m *Module) RegisterPub(g *gin.RouterGroup) {
-	g.POST("/auth/login", m.h.login)
-	g.POST("/auth/refresh", m.h.refresh)
+
+	v1 := g.Group("/v1")
+	{
+		v1.POST("/login", m.h.login)
+		v1.POST("/register", m.h.register)
+
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/refresh", m.h.refresh)
+		}
+
+	}
+
 }
 
-// RegisterPrivate 挂载需鉴权路由到 /api/v1。
+// RegisterPrivate 挂载需鉴权路由到 /api/v1
 func (m *Module) RegisterPrivate(g *gin.RouterGroup) {
-	// auth
-	g.GET("/auth/me", m.h.me)
-	g.POST("/auth/logout", m.h.logout)
 
-	// user CRUD (按 [[api-http-methods]], 无 PUT / DELETE)
-	g.POST("/users", m.h.create)
-	g.GET("/users", m.h.list)
-	g.GET("/users/:id", m.h.get)
-	g.POST("/users/:id/update", m.h.update)
-	g.POST("/users/:id/delete", m.h.delete)
-	g.POST("/users/:id/password", m.h.changePassword)
+	v1 := g.Group("/v1")
+	{
+		v1.GET("/logout", m.h.logout)
+
+		// auth
+		auth := v1.Group("/auth")
+		{
+			auth.GET("/me", m.h.me)
+		}
+
+		user := v1.Group("/user")
+		{
+
+			user.POST("/create", m.h.create)
+			user.GET("/list", m.h.list)
+		}
+
+	}
+
 }
+
+// 编译期断言: Module 必须满足 router.ModuleRoutes
+var _ router.ModuleRoutes = (*Module)(nil)

@@ -23,19 +23,37 @@
 package cluster
 
 import (
-	"github.com/gin-gonic/gin"
-
+	"olixops/internal/config"
 	"olixops/internal/interfaces/http/router"
+	"olixops/internal/modules/cluster/repository"
+	"olixops/internal/modules/cluster/service"
+	"olixops/internal/platform/audit"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"olixops/internal/modules/cluster/handler"
 )
 
 // Handlers 聚合 cluster 模块所有子 handler, 减少 Module 字段数。
 // 后续 NewModule 接受这个聚合结构, 方便 app.go 一次性注入。
 type Handlers struct {
-	Cluster  *handler.ClusterHandler
-	Ns       *handler.NamespaceHandler
-	Node     *handler.NodeHandler
-	Workload *handler.WorkloadHandler
+	ClusterHandler  *handler.ClusterHandler
+	NsHandler       *handler.NamespaceHandler
+	NodeHandler     *handler.NodeHandler
+	WorkloadHandler *handler.WorkloadHandler
+}
+
+func NewHandlers(clusterHandler *handler.ClusterHandler,
+	nsHandler *handler.NamespaceHandler,
+	nodeHandler *handler.NodeHandler,
+	workloadHandler *handler.WorkloadHandler) *Handlers {
+	return &Handlers{
+		ClusterHandler:  clusterHandler,
+		NsHandler:       nsHandler,
+		NodeHandler:     nodeHandler,
+		WorkloadHandler: workloadHandler,
+	}
 }
 
 // Module 是 cluster 模块对外的路由注册入口, 实现 router.ModuleRoutes。
@@ -43,13 +61,35 @@ type Module struct {
 	h *Handlers
 }
 
-// NewModule 构造 cluster 模块。
+// NewModule 构造 cluster 模块
 func NewModule(h *Handlers) *Module {
 	return &Module{h: h}
 }
 
-// 编译期断言: Module 必须满足 router.ModuleRoutes。
-var _ router.ModuleRoutes = (*Module)(nil)
+func Assemble(db *gorm.DB, recoder audit.Recorder, k8sConfig *config.K8sConfig) (*Module, error) {
+
+	// TODO构造初始化工厂
+	//factory = adapter.Factory()
+
+	// init k8s client by async
+
+	// cluster handler init
+	repo := repository.NewClusterRepo(db)
+	svc := service.NewClusterService(repo, nil)
+	clusterHandler := handler.NewClusterHandler(svc, k8sConfig)
+
+	// ns handler init
+	// TODO
+
+	// node handler init
+	// TODO
+
+	// workload handler init
+	// TODO
+
+	h := NewHandlers(clusterHandler, nil, nil, nil)
+	return NewModule(h), nil
+}
 
 // Name 返回模块名, 用于启动日志。
 func (m *Module) Name() string { return "cluster" }
@@ -57,32 +97,22 @@ func (m *Module) Name() string { return "cluster" }
 // RegisterPub cluster 没有 pub 路由, 空实现。
 func (m *Module) RegisterPub(_ *gin.RouterGroup) {}
 
-// RegisterPrivate 挂载需鉴权路由到 /api/v1。
-//
-// TODO 实现完所有 handler 后, 把以下注释展开为真实路由注册:
-//
-//	cl := g.Group("/clusters")
-//	cl.GET("", m.h.Cluster.list)
-//	cl.POST("", m.h.Cluster.create)
-//	cl.GET("/:id", m.h.Cluster.get)
-//	cl.POST("/:id/update", m.h.Cluster.update)
-//	cl.POST("/:id/refresh", m.h.Cluster.refresh)
-//	cl.POST("/:id/delete", m.h.Cluster.delete)
-//
-//	cl.GET("/:id/namespaces", m.h.Ns.list)
-//	cl.POST("/:id/namespaces", m.h.Ns.create)
-//	cl.GET("/:id/namespaces/:ns", m.h.Ns.get)
-//	cl.POST("/:id/namespaces/:ns/delete", m.h.Ns.delete)
-//
-//	cl.GET("/:id/nodes", m.h.Node.list)
-//	cl.GET("/:id/nodes/:name", m.h.Node.get)
-//
-//	cl.GET("/:id/deployments", m.h.Workload.listDeployments)
-//	cl.GET("/:id/deployments/:ns/:name", m.h.Workload.getDeployment)
-//	cl.GET("/:id/services", m.h.Workload.listServices)
-//	cl.GET("/:id/services/:ns/:name", m.h.Workload.getService)
-//	cl.GET("/:id/ingresses", m.h.Workload.listIngresses)
-//	cl.GET("/:id/ingresses/:ns/:name", m.h.Workload.getIngress)
 func (m *Module) RegisterPrivate(g *gin.RouterGroup) {
-	_ = g
+	k8s := g.Group("/k8s")
+	{
+		cl := k8s.Group("/cluster")
+		{
+			cl.POST("/create", m.h.ClusterHandler.Create)
+		}
+
+		//ns := k8s.Group("/ns")
+		//{
+		//
+		//}
+
+	}
+
 }
+
+// 编译期断言: Module 必须满足 router.ModuleRoutes。
+var _ router.ModuleRoutes = (*Module)(nil)

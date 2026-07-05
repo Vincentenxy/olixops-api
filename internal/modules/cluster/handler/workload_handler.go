@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"olixops/internal/modules/cluster/service"
-	"olixops/pkg/httpx"
 )
 
 // WorkloadHandler deployment / service / ingress HTTP 入口 (只读)。
@@ -49,5 +48,3 @@ func (h *WorkloadHandler) getIngress(c *gin.Context) {
 	// TODO
 	_ = c
 }
-
-var _ = httpx.OK

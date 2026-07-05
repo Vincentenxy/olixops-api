@@ -12,7 +12,7 @@ import (
 	"olixops/pkg/pagination"
 )
 
-// Repository 是用户持久化接口。
+// Repository 是用户持久化接口
 type Repository interface {
 	Create(ctx context.Context, u *User) error
 	Update(ctx context.Context, u *User) error
@@ -22,13 +22,7 @@ type Repository interface {
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	FindByExternal(ctx context.Context, source, externalID string) (*User, error)
 	UpdateLastLogin(ctx context.Context, id, ip string, at time.Time) error
-	List(ctx context.Context, q pagination.Query, filter ListFilter) ([]*User, int64, error)
-}
-
-// ListFilter 是用户列表过滤条件。
-type ListFilter struct {
-	Status Status
-	Source string
+	List(ctx context.Context, filter ListFilter) ([]*User, int64, error)
 }
 
 // gormRepository 是 GORM 实现。
@@ -36,8 +30,7 @@ type gormRepository struct {
 	db *gorm.DB
 }
 
-// NewRepository 构造默认仓储。
-func NewRepository(db *gorm.DB) Repository { return &gormRepository{db: db} }
+var _ Repository = (*gormRepository)(nil)
 
 func (r *gormRepository) tx(ctx context.Context) *gorm.DB {
 	return database.FromContext(ctx, r.db)
@@ -98,7 +91,17 @@ func (r *gormRepository) UpdateLastLogin(ctx context.Context, id, ip string, at 
 		}).Error
 }
 
-func (r *gormRepository) List(ctx context.Context, q pagination.Query, filter ListFilter) ([]*User, int64, error) {
+// ListFilter 是用户列表过滤条件。
+type ListFilter struct {
+	pagination.Query
+	Status  Status `json:"status"`
+	Source  string `json:"source"`
+	Keyword string `json:"keyword"`
+	OrderBy string `json:"order_by"`
+	Order   string `json:"order"`
+}
+
+func (r *gormRepository) List(ctx context.Context, filter ListFilter) ([]*User, int64, error) {
 	tx := r.tx(ctx).Model(&User{})
 	if filter.Status != "" {
 		tx = tx.Where("status = ?", filter.Status)
@@ -106,22 +109,22 @@ func (r *gormRepository) List(ctx context.Context, q pagination.Query, filter Li
 	if filter.Source != "" {
 		tx = tx.Where("source = ?", filter.Source)
 	}
-	if q.Keyword != "" {
+	if filter.Keyword != "" {
 		tx = tx.Where("username ILIKE ? OR email ILIKE ? OR display_name ILIKE ?",
-			"%"+q.Keyword+"%", "%"+q.Keyword+"%", "%"+q.Keyword+"%")
+			"%"+filter.Keyword+"%", "%"+filter.Keyword+"%", "%"+filter.Keyword+"%")
 	}
 	var total int64
 	if err := tx.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	orderBy := "created_at"
-	if q.OrderBy != "" {
-		orderBy = q.OrderBy
+	if filter.OrderBy != "" {
+		orderBy = filter.OrderBy
 	}
 	var items []*User
-	if err := tx.Order(orderBy + " " + q.Order).
-		Offset(q.Offset()).
-		Limit(q.Limit()).
+	if err := tx.Order(orderBy + " " + filter.Order).
+		Offset(filter.Offset()).
+		Limit(filter.Limit()).
 		Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
@@ -133,4 +136,11 @@ func mapErr(err error) error {
 		return errs.NotFound("user")
 	}
 	return err
+}
+
+// NewRepository 构造默认仓储
+func NewRepository(db *gorm.DB) Repository {
+	return &gormRepository{
+		db: db,
+	}
 }

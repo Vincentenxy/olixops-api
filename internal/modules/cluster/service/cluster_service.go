@@ -1,32 +1,25 @@
-// Package service 编排 cluster 模块的业务逻辑。
-//
-// 业务代码只调:
-//   - repository.ClusterRepository (持久化)
-//   - adapter.K8sClient + adapter.Factory (K8s 通信)
-//
-// 不直接 import k8s.io/* 和 gorm.io/*。
 package service
 
 import (
 	"context"
-	"modules/cluster/adapter"
-	"modules/cluster/domain"
-	"modules/cluster/repository"
+	"olixops/internal/modules/cluster/adapter"
+	"olixops/internal/modules/cluster/domain"
+	"olixops/internal/modules/cluster/repository"
 	"olixops/internal/platform/logger"
 	"olixops/pkg/errs"
-	"olixops/pkg/pagination"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
-// ClusterService 集群管理服务。
+// ClusterService 集群管理服务
 type ClusterService struct {
 	repo    repository.ClusterRepo
 	factory adapter.Factory
 }
 
-// NewClusterService 构造服务。
+// NewClusterService 构造服务
 func NewClusterService(repo repository.ClusterRepo, factory adapter.Factory) *ClusterService {
 	return &ClusterService{
 		repo:    repo,
@@ -36,31 +29,47 @@ func NewClusterService(repo repository.ClusterRepo, factory adapter.Factory) *Cl
 
 // CreateInput 注册集群的入参
 type CreateInput struct {
-	ID             string `json:"id"`
-	Name           string `json:"name" binding:"required,min=1,max=128"`
-	TenantID       string `json:"tenantId" binding:"required,min=1,max=128"`
-	Environment    string `json:"environment" binding:"required,max=32"`
-	Description    string `json:"description" binding:"max=512"`
-	KubeconfigPath string `json:"kubeconfigPath" binding:"required"`
+	ID          string `json:"id"`
+	Name        string `json:"name" binding:"required,min=1,max=128"`
+	TenantID    string `json:"tenantId" binding:"required,min=1,max=128"`
+	Environment string `json:"environment" binding:"required,max=32"`
+	Description string `json:"description" binding:"max=512"`
+	Kubeconfig  string `json:"kubeconfig" binding:"required"`
 }
 
 // UpdateInput 更新集群入参 (名称/描述/环境, 不含 kubeconfig 和探测字段)。
 type UpdateInput struct {
+	ID          string  `json:"id", required:"true"`
 	Name        *string `json:"name,omitempty" binding:"omitempty,min=1,max=128"`
-	Environment *string `json:"environment,omitempty" binding:"omitempty,max=32"`
 	Description *string `json:"description,omitempty" binding:"max=512"`
+	Status      *string `json:"status,omitempty" binding:"omitempty,min=1,max=32"`
 }
 
-func (s *ClusterService) Create(ctx context.Context, input CreateInput) error {
+func (s *ClusterService) Create(ctx context.Context, input CreateInput) (*domain.Cluster, error) {
 
-	log := logger.FromContext()
+	log := logger.FromContext(ctx)
+	log.Info("create cluster",
+		zap.String("id", input.ID),
+		zap.String("name", input.Name),
+		zap.String("environment", input.Environment),
+		zap.String("description", input.Description),
+	)
 
 	cluster := &domain.Cluster{
-		ID:       input.ID,
-		TenantID: iput.TenantID,
+		ID:          input.ID,
+		TenantID:    input.TenantID,
+		Name:        input.Name,
+		Environment: input.Environment,
+		Description: input.Description,
+		KubeConfig:  input.Kubeconfig,
 	}
 
-	return s.repo.Create(ctx, cluster)
+	err := s.repo.Create(ctx, cluster)
+	if err != nil {
+		log.Error("create cluster", zap.Error(err))
+		return nil, err
+	}
+	return cluster, nil
 }
 
 // Register 注册新集群:
@@ -87,7 +96,7 @@ func (s *ClusterService) Register(ctx context.Context, in CreateInput) (*domain.
 // Get 按 ID 查询, 含实时探测 (强制刷新)。
 func (s *ClusterService) Get(ctx context.Context, id string) (*domain.Cluster, error) {
 	// TODO: 先 s.repo.FindByID, 再可选地重新探测 (Get 不强制刷新, 详情看 status)
-	c, err := s.repo.FindByID(ctx, id)
+	c, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -95,18 +104,13 @@ func (s *ClusterService) Get(ctx context.Context, id string) (*domain.Cluster, e
 }
 
 // List 列表 (按 env / status 过滤, 不实时探测)。
-func (s *ClusterService) List(ctx context.Context, q pagination.Query, filter repository.ListFilter) ([]*domain.Cluster, int64, error) {
-	// TODO: 透传给 repo
-	return s.repo.List(ctx, q, filter)
+func (s *ClusterService) List(ctx context.Context, filter *domain.ClusterListFilter) ([]*domain.Cluster, int64, error) {
+	return s.repo.List(ctx, filter)
 }
 
 // Update 修改元数据 (name/description/environment), 不动 kubeconfig。
 func (s *ClusterService) Update(ctx context.Context, id string, in UpdateInput) (*domain.Cluster, error) {
-	// TODO:
-	//   1. FindByID
-	//   2. 应用 in 中的非 nil 字段
-	//   3. s.repo.Update
-	_ = in
+
 	return nil, errs.NotFound("TODO")
 }
 

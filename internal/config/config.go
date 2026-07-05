@@ -15,14 +15,16 @@ import (
 
 // Config 是应用根配置。
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
-	Server   ServerConfig   `mapstructure:"server"`
-	Log      LogConfig      `mapstructure:"log"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Auth     AuthConfig     `mapstructure:"auth"`
-	Storage  StorageConfig  `mapstructure:"storage"`
-	EnvVault EnvVaultConfig `mapstructure:"env_vault"`
+	App          AppConfig      `mapstructure:"app"`
+	Server       ServerConfig   `mapstructure:"server"`
+	Log          LogConfig      `mapstructure:"log"`
+	Database     DatabaseConfig `mapstructure:"database"`
+	Redis        RedisConfig    `mapstructure:"redis"`
+	Auth         AuthConfig     `mapstructure:"auth"`
+	Storage      StorageConfig  `mapstructure:"storage"`
+	EnvVault     EnvVaultConfig `mapstructure:"env_vault"`
+	CookieConfig CookieConfig   `mapstructure:"cookie_config"`
+	K8sConfig    K8sConfig      `mapstructure:"k8s_config"`
 }
 
 // AppConfig 描述应用元信息。
@@ -124,6 +126,10 @@ type StorageConfig struct {
 	AKID     string `mapstructure:"access_key_id"`
 	Secret   string `mapstructure:"secret_access_key"`
 	UseSSL   bool   `mapstructure:"use_ssl"`
+}
+
+type K8sConfig struct {
+	SecretKey string `mapstructure:"secret_key"`
 }
 
 // IsProduction 判断是否为生产环境。
@@ -229,6 +235,15 @@ func setDefaults(v *viper.Viper) {
 
 	v.SetDefault("env_vault.url", "http://localhost:8080")
 	v.SetDefault("env_valult.timeout", 30*time.Second)
+
+	v.SetDefault("cookie_config.path", "/")
+	v.SetDefault("cookie_config.domain", "localhost")
+	v.SetDefault("cookie_config.max_age", 3600)
+	v.SetDefault("cookie_config.secure", true)
+	v.SetDefault("cookie_config.http_only", true)
+	v.SetDefault("cookie_config.same_site", "Lax")
+
+	v.SetDefault("k8s_config.secret_key", ".")
 }
 
 func validate(c *Config) error {

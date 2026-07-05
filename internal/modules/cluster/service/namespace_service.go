@@ -14,12 +14,12 @@ import (
 //
 // 关键: 不存 ns 数据, 每次操作都实时查 K8s。
 type NamespaceService struct {
-	repo    repository.ClusterRepository // 用来根据 ID 查集群拿 kubeconfig
+	repo    repository.ClusterRepo // 用来根据 ID 查集群拿 kubeconfig
 	factory adapter.Factory
 }
 
 // NewNamespaceService 构造服务。
-func NewNamespaceService(repo repository.ClusterRepository, factory adapter.Factory) *NamespaceService {
+func NewNamespaceService(repo repository.ClusterRepo, factory adapter.Factory) *NamespaceService {
 	return &NamespaceService{repo: repo, factory: factory}
 }
 

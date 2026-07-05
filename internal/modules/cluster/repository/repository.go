@@ -2,11 +2,11 @@ package repository
 
 import (
 	"context"
-	"modules/cluster/domain"
+	"olixops/internal/modules/cluster/domain"
 	"time"
 )
 
-// ClusterRepository 是 cluster 元数据的持久化接口。
+// ClusterRepository 是 cluster 元数据的持久化接口
 type ClusterRepo interface {
 
 	// Create 新增集群
@@ -16,7 +16,7 @@ type ClusterRepo interface {
 	GetByID(ctx context.Context, id string) (*domain.Cluster, error)
 
 	// List 分页查询，按租户/环境/状态筛选
-	List(ctx context.Context, tenantId, env string, status domain.ClusterStatus, offset, limit int) ([]*domain.Cluster, int64, error)
+	List(ctx context.Context, filter *domain.ClusterListFilter) ([]*domain.Cluster, int64, error)
 
 	// Update 更新集群基础信息
 	Update(ctx context.Context, cluster *domain.Cluster) error

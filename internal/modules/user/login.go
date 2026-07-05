@@ -21,7 +21,7 @@ type RefreshInput struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-// LoginResult 是登录成功返回。
+// LoginResult 是登录成功返回
 type LoginResult struct {
 	User   *User          `json:"user"`
 	Tokens auth.TokenPair `json:"tokens"`
@@ -29,8 +29,8 @@ type LoginResult struct {
 
 // Login 账号密码登录, 校验通过后签发 access + refresh。
 //
-// 失败一律返回 errs.Unauthorized("invalid credentials"),
-// 不区分"用户不存在"和"密码错误", 防止账号枚举。
+// 失败一律返回 errs.Unauthorized("invalid credentials")
+// 不区分"用户不存在"和"密码错误", 防止账号枚举
 func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
 	in.Username = strings.TrimSpace(in.Username)
 	u, err := s.repo.FindByUsername(ctx, in.Username)
@@ -58,7 +58,10 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error)
 	if err != nil {
 		return LoginResult{}, errs.Internal("issue tokens: %v", err)
 	}
-	return LoginResult{User: u, Tokens: tokens}, nil
+	return LoginResult{
+		User:   u,
+		Tokens: tokens,
+	}, nil
 }
 
 // Refresh 用 refresh token 换新 pair (rotate)。
@@ -72,7 +75,7 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (auth.TokenPair,
 }
 
 // Logout 第一阶段 noop: JWTIssuer.Revoke 是 stub。
-// 后续阶段接 Redis 黑名单时, 这里把 token jti 写入黑名单。
+// 后续阶段接 Redis 黑名单时, 这里把 token jti 写入黑名单
 func (s *Service) Logout(_ context.Context, _ string) error {
 	return nil
 }

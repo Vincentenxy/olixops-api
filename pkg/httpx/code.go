@@ -1,20 +1,22 @@
 package httpx
 
 const (
+	CodeFail int = -1
+
 	// 成功
-	Ok int = 0
+	CodeSuccess = 0
 
 	// 参数错误
-	InvalidParam = 400
+	CodeInvalidParam = 400
 
 	// 未登录
-	Unauthorized = 401
+	CodeUnauthorized = 401
 
 	// 权限不足
-	Forbidden = 403
+	CodeForbidden = 403
 
 	// 系统异常
-	SystemError = 500
+	CodeSystemError = 500
 )
 
 type codeMeta struct {
@@ -23,28 +25,33 @@ type codeMeta struct {
 }
 
 var metaMap = map[int]codeMeta{
-	Ok: {
-		bizCode: Ok,
+	CodeSuccess: {
+		bizCode: CodeSuccess,
 		msg:     "success",
 	},
 
-	InvalidParam: {
-		bizCode: InvalidParam,
+	CodeFail: {
+		bizCode: CodeFail,
+		msg:     "fail",
+	},
+
+	CodeInvalidParam: {
+		bizCode: CodeInvalidParam,
 		msg:     "invalid params",
 	},
 
-	Unauthorized: {
-		bizCode: Unauthorized,
+	CodeUnauthorized: {
+		bizCode: CodeUnauthorized,
 		msg:     "unauthorized",
 	},
 
-	Forbidden: {
-		bizCode: Forbidden,
+	CodeForbidden: {
+		bizCode: CodeForbidden,
 		msg:     "forbidden",
 	},
 
-	SystemError: {
-		bizCode: SystemError,
+	CodeSystemError: {
+		bizCode: CodeSystemError,
 		msg:     "system error",
 	},
 }
@@ -52,7 +59,7 @@ var metaMap = map[int]codeMeta{
 func GetMeta(bizCode int) codeMeta {
 	m, ok := metaMap[bizCode]
 	if !ok {
-		return metaMap[SystemError]
+		return metaMap[CodeSystemError]
 	}
 	return m
 }

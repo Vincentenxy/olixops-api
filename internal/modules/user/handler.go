@@ -1,23 +1,39 @@
 package user
 
 import (
-	"github.com/gin-gonic/gin"
-
+	"errors"
 	"olixops/internal/platform/audit"
 	"olixops/internal/platform/auth"
+	"olixops/internal/platform/logger"
 	"olixops/pkg/httpx"
 	"olixops/pkg/pagination"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-// Handler 处理用户相关 HTTP 请求。
+type RegisterInput struct {
+	Username        string `json:"username" binding:"required"`
+	Password        string `json:"password" binding:"required"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+	Email           string `json:"email" binding:"required"`
+	DisplayName     string `json:"displayName" binding:"required"`
+}
+
+// Handler 处理用户相关 HTTP 请求
 type Handler struct {
-	svc      *Service
-	recorder audit.Recorder
+	svc           *Service
+	recorder      audit.Recorder
+	cookieManager *auth.CookieManager
 }
 
 // NewHandler 构造 handler。
-func NewHandler(svc *Service, recorder audit.Recorder) *Handler {
-	return &Handler{svc: svc, recorder: recorder}
+func NewHandler(svc *Service, recorder audit.Recorder, cookieManager *auth.CookieManager) *Handler {
+	return &Handler{
+		svc:           svc,
+		recorder:      recorder,
+		cookieManager: cookieManager,
+	}
 }
 
 // RegisterPub 注册免鉴权路由 (login / refresh)。
@@ -25,30 +41,72 @@ func NewHandler(svc *Service, recorder audit.Recorder) *Handler {
 func (h *Handler) login(c *gin.Context) {
 	var in LoginInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, errors.New("invalid input params"))
 		return
 	}
 	in.IP = c.ClientIP()
 
 	res, err := h.svc.Login(c.Request.Context(), in)
 	if err != nil {
-		h.recordFailure(c, "user.login.failure", in.Username, err.Error())
-		httpx.Error(c, err)
+		h.recordFailure(c, audit.UserLoginFailure, in.Username, err.Error())
+		httpx.Fail(c, err)
 		return
 	}
-	h.recordSuccess(c, "user.login.success", res.User.ID, res.User.Username)
+
+	h.setAuthCookie(c, &res)
+	h.recordSuccess(c, audit.UserLoginSuccess, res.User.ID, res.User.Username)
 	httpx.OK(c, res)
+}
+
+func (h *Handler) setAuthCookie(c *gin.Context, res *LoginResult) {
+
+	// set jwt into cookie
+	h.cookieManager.SetWithExpires(
+		c,
+		"auth_token",
+		res.Tokens.AccessToken,
+		res.Tokens.AccessTokenExpiresAt,
+	)
+}
+
+func (h *Handler) register(c *gin.Context) {
+	log := logger.L()
+	var req RegisterInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Error("invalid input prams: ", zap.Error(err))
+		httpx.Fail(c, errors.New("参数解析失败！"))
+		return
+	}
+
+	if req.Password != req.ConfirmPassword {
+		httpx.Fail(c, errors.New("密码与确认密码必须一致！"))
+		return
+	}
+
+	user, err := h.svc.Create(c, CreateInput{
+		Username:    req.Username,
+		Password:    req.Password,
+		Email:       req.Email,
+		DisplayName: req.DisplayName,
+	})
+	if err != nil {
+		h.recordFailure(c, audit.UserCreateFailure, req.Username, err.Error())
+		httpx.Fail(c, err)
+		return
+	}
+
+	httpx.OK(c, user)
 }
 
 func (h *Handler) refresh(c *gin.Context) {
 	var in RefreshInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	pair, err := h.svc.Refresh(c.Request.Context(), in)
 	if err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	h.recordSuccess(c, "user.refresh", "", "")
@@ -60,7 +118,7 @@ func (h *Handler) refresh(c *gin.Context) {
 func (h *Handler) me(c *gin.Context) {
 	u, err := h.svc.Me(c.Request.Context())
 	if err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	httpx.OK(c, u)
@@ -70,41 +128,47 @@ func (h *Handler) logout(c *gin.Context) {
 	sub, _ := auth.FromContext(c.Request.Context())
 	_ = h.svc.Logout(c.Request.Context(), "")
 	h.recordSuccess(c, "user.logout", sub.UserID, sub.Username)
-	httpx.NoContent(c)
+	httpx.OK[any](c, nil)
 }
 
 func (h *Handler) create(c *gin.Context) {
 	var in CreateInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	u, err := h.svc.Create(c.Request.Context(), in)
 	if err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
-	httpx.Created(c, u)
+	httpx.OK(c, u)
 }
 
 func (h *Handler) list(c *gin.Context) {
-	q := pagination.FromGin(c)
-	filter := ListFilter{
-		Status: Status(c.Query("status")),
-		Source: c.Query("source"),
+	var filter ListFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		httpx.Fail(c, err)
 	}
-	items, total, err := h.svc.List(c.Request.Context(), q, filter)
+
+	items, total, err := h.svc.List(c.Request.Context(), filter)
 	if err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
-	httpx.Paged(c, items, total, q.Page, q.PageSize)
+	httpx.OK[pagination.PageResult[*User]](
+		c,
+		pagination.PageResult[*User]{
+			Total: total,
+			List:  items,
+		})
+	return
 }
 
 func (h *Handler) get(c *gin.Context) {
 	u, err := h.svc.Get(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	httpx.OK(c, u)
@@ -113,12 +177,12 @@ func (h *Handler) get(c *gin.Context) {
 func (h *Handler) update(c *gin.Context) {
 	var in UpdateInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	u, err := h.svc.Update(c.Request.Context(), c.Param("id"), in)
 	if err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	httpx.OK(c, u)
@@ -126,23 +190,23 @@ func (h *Handler) update(c *gin.Context) {
 
 func (h *Handler) delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
-	httpx.NoContent(c)
+	httpx.OK[any](c, nil)
 }
 
 func (h *Handler) changePassword(c *gin.Context) {
 	var in ChangePasswordInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
 	if err := h.svc.ChangePassword(c.Request.Context(), c.Param("id"), in); err != nil {
-		httpx.Error(c, err)
+		httpx.Fail(c, err)
 		return
 	}
-	httpx.NoContent(c)
+	httpx.OK[any](c, nil)
 }
 
 func (h *Handler) recordSuccess(c *gin.Context, action, actorID, actorName string) {

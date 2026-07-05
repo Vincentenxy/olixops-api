@@ -11,12 +11,12 @@ import (
 
 // NodeService 节点只读服务。
 type NodeService struct {
-	repo    repository.ClusterRepository
+	repo    repository.ClusterRepo
 	factory adapter.Factory
 }
 
 // NewNodeService 构造服务。
-func NewNodeService(repo repository.ClusterRepository, factory adapter.Factory) *NodeService {
+func NewNodeService(repo repository.ClusterRepo, factory adapter.Factory) *NodeService {
 	return &NodeService{repo: repo, factory: factory}
 }
 

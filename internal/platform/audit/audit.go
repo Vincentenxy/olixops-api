@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Event 是一次审计事件。
+// Event 是一次审计事件
 type Event struct {
 	ID         string            `json:"id"`
 	OccurredAt time.Time         `json:"occurred_at"`
@@ -31,7 +31,7 @@ type Recorder interface {
 	Record(ctx context.Context, ev Event) error
 }
 
-// RecorderFunc 让函数也能实现 Recorder。
+// RecorderFunc 让函数也能实现 Recorder
 type RecorderFunc func(ctx context.Context, ev Event) error
 
 func (f RecorderFunc) Record(ctx context.Context, ev Event) error {

@@ -7,8 +7,8 @@ import "github.com/gin-gonic/gin"
 // 一个模块对应一个业务域 (例如 user / project / health),
 // 通过实现 RegisterPub / RegisterPrivate 把本模块的路由挂到对应的 v1 子路由组上。
 //
-//   - RegisterPub    挂到 /api/pub/v1    免鉴权接口 (healthz、login、register 等)
-//   - RegisterPrivate 挂到 /api/v1        需鉴权接口 (CRUD、业务操作等)
+//   - RegisterPub    挂到 /api/pub/    免鉴权接口 (healthz、login、register 等)
+//   - RegisterPrivate 挂到 /api/        需鉴权接口 (CRUD、业务操作等)
 //
 // 任一方法允许为空实现,表示该模块没有对应分类的接口。
 //
