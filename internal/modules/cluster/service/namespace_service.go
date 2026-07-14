@@ -2,12 +2,16 @@ package service
 
 import (
 	"context"
+	"olixops/internal/platform/logger"
 	"time"
 
 	"olixops/internal/modules/cluster/adapter"
 	"olixops/internal/modules/cluster/domain"
 	"olixops/internal/modules/cluster/repository"
 	"olixops/pkg/errs"
+
+	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NamespaceService namespace 管理服务。
@@ -18,9 +22,12 @@ type NamespaceService struct {
 	factory adapter.Factory
 }
 
-// NewNamespaceService 构造服务。
+// NewNamespaceService 构造服务
 func NewNamespaceService(repo repository.ClusterRepo, factory adapter.Factory) *NamespaceService {
-	return &NamespaceService{repo: repo, factory: factory}
+	return &NamespaceService{
+		repo:    repo,
+		factory: factory,
+	}
 }
 
 // clientFor 根据 clusterID 拿到 K8sClient, 内部 helper, 三个 service 共用。
@@ -33,11 +40,30 @@ func (s *NamespaceService) clientFor(ctx context.Context, clusterID string) (ada
 	return nil, errs.NotFound("TODO")
 }
 
-// List 列出集群的所有 namespace。
-func (s *NamespaceService) List(ctx context.Context, clusterID string) ([]domain.Namespace, error) {
-	// TODO: clientFor → cli.ListNamespaces(ctx)
-	_ = clusterID
-	return nil, errs.NotFound("TODO")
+type NsListParams struct {
+	metav1.ListOptions
+	ClusterID string
+}
+
+// List 列出集群的所有 namespace
+func (s *NamespaceService) List(ctx context.Context, nsListParams NsListParams) ([]domain.Namespace, error) {
+	client, err := s.factory.GetK8sClient(ctx, nsListParams.ClusterID)
+	if err != nil {
+		logger.L().Error("could not get k8s client", zap.Error(err))
+		return nil, err
+	}
+
+	// add label selector
+	var listOptions metav1.ListOptions
+	listOptions.LabelSelector = nsListParams.LabelSelector
+	listOptions.FieldSelector = nsListParams.FieldSelector
+
+	namespaces, err := client.ListNamespaces(ctx, listOptions)
+	if err != nil {
+		logger.L().Error("could not list namespaces", zap.Error(err))
+		return nil, err
+	}
+	return namespaces, err
 }
 
 // Get 取单个 namespace。

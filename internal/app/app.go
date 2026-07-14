@@ -96,7 +96,7 @@ func Run() error {
 	}
 
 	// cluster module
-	clusterModule, err := cluster.Assemble(db, recorder, &cfg.K8sConfig)
+	clusterModule, err := cluster.Assemble(ctx, db, &cfg.K8sConfig, recorder)
 	if err != nil {
 		lg.Fatal("assemble cluster module failed", zap.Error(err))
 	}

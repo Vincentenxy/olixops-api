@@ -1,16 +1,19 @@
 package handler
 
 import (
+	"encoding/base64"
 	"errors"
 	"olixops/internal/config"
 	"olixops/internal/modules/cluster/domain"
 	"olixops/internal/modules/cluster/service"
+	"olixops/internal/platform/logger"
 	"olixops/pkg/cryptox"
 	"olixops/pkg/errs"
 	"olixops/pkg/httpx"
 	"olixops/pkg/pagination"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // ClusterHandler 集群 HTTP 入口。
@@ -43,8 +46,15 @@ func (h *ClusterHandler) Create(c *gin.Context) {
 		return
 	}
 
-	aesgcm, err := cryptox.EncryptAESGCM([]byte(h.k8sConfig.SecretKey), []byte(req.KubeConfig))
+	decodedKubeConfig, err := base64.StdEncoding.DecodeString(req.KubeConfig)
 	if err != nil {
+		httpx.Fail(c, errors.New("invalid kubeconfig, decode failed"))
+		return
+	}
+
+	aesgcm, err := cryptox.EncryptAESGCM([]byte(h.k8sConfig.SecretKey), []byte(decodedKubeConfig))
+	if err != nil {
+		logger.L().Error("encrypt k8s kubeconfig failed", zap.Error(err))
 		httpx.Fail(c, errors.New("save k8s info error!"))
 		return
 	}
@@ -58,6 +68,7 @@ func (h *ClusterHandler) Create(c *gin.Context) {
 	})
 	if err != nil {
 		httpx.Fail(c, err)
+		return
 	}
 	httpx.OK[*domain.Cluster](c, cluster)
 	return
@@ -70,11 +81,12 @@ type ClusterListReq struct {
 	Status   string `form:"status" `
 }
 
-// List POST /api/v1/clusters
+// List POST /api/v1/cluster/list
 func (h *ClusterHandler) List(c *gin.Context) {
 	var req ClusterListReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpx.Fail(c, errs.InvalidArg("invalid request: %v", err))
+		return
 	}
 
 	req.Normalize()

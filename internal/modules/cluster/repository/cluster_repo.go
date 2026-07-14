@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"olixops/internal/modules/cluster/domain"
+	"olixops/internal/platform/logger"
 	"time"
 
 	"gorm.io/gorm"
@@ -17,26 +19,40 @@ func (cr *clusterRepo) Create(ctx context.Context, cluster *domain.Cluster) erro
 }
 
 func (cr *clusterRepo) List(ctx context.Context, filter *domain.ClusterListFilter) ([]*domain.Cluster, int64, error) {
-	tx := cr.db.WithContext(ctx)
-	if filter.TenantID != "" {
-		tx = tx.Where("tenant_id = ?", filter.TenantID)
-	}
-	if filter.Env != "" {
-		tx = tx.Where("env = ?", filter.Env)
-	}
-	if filter.Status != "" {
-		tx = tx.Where("status = ?", filter.Status)
+	if cr.db == nil {
+		logger.L().Error("clusterRepo.List db is nil")
+		return nil, 0, fmt.Errorf("db is nil")
 	}
 
+	buildQuery := func() *gorm.DB {
+		query := cr.db.WithContext(ctx).Model(&domain.Cluster{})
+		if filter != nil {
+			if filter.TenantID != "" {
+				query = query.Where("tenant_id = ?", filter.TenantID)
+			}
+			if filter.Env != "" {
+				query = query.Where("env = ?", filter.Env)
+			}
+			if filter.Status != "" {
+				query = query.Where("status = ?", filter.Status)
+			}
+		}
+		return query
+	}
+
+	// 统计总数
 	var total int64
-	err := tx.Count(&total).Error
-	if err != nil {
+	if err := buildQuery().Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// page
+	// 查询数据
 	var list []*domain.Cluster
-	err = tx.Order("created_at desc").Offset(filter.Offset()).Limit(filter.Limit()).Find(&list).Error
+	query := buildQuery().Order("created_at desc")
+	if filter != nil {
+		query = query.Offset(filter.Offset()).Limit(filter.Limit())
+	}
+	err := query.Find(&list).Error
 	return list, total, err
 }
 

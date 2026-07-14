@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"olixops/internal/platform/auth"
-	"olixops/pkg/errs"
 	"olixops/pkg/httpx"
 
 	"github.com/gin-gonic/gin"
@@ -48,14 +47,14 @@ func Auth(issuer auth.TokenIssuer, cookieManager *auth.CookieManager) gin.Handle
 
 		// not login
 		if token == "" {
-			httpx.Fail(c, errs.Unauthorized("missing token"))
+			httpx.Unauthorized(c)
 			c.Abort()
 			return
 		}
 
 		sub, err := issuer.Verify(c.Request.Context(), token)
 		if err != nil {
-			httpx.Fail(c, errs.FromAuthError(err))
+			httpx.Unauthorized(c)
 			c.Abort()
 			return
 		}

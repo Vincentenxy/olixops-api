@@ -20,16 +20,20 @@ const (
 
 // Node K8s 节点的本地视图 (只读, 不入库)。
 type Node struct {
-	Name              string            `json:"name"`
-	Role              NodeRole          `json:"role"`
-	Status            NodeStatus        `json:"status"`
-	InternalIP        string            `json:"internalIP"`
-	OSImage           string            `json:"osImage"`
-	KubeletVersion    string            `json:"kubeletVersion"`
-	CapacityCPU       string            `json:"capacityCPU"`    // 例如 "4"
-	CapacityMemory    string            `json:"capacityMemory"` // 例如 "8Gi"
-	AllocatableCPU    string            `json:"allocatableCPU"`
-	AllocatableMemory string            `json:"allocatableMemory"`
-	Labels            map[string]string `json:"labels,omitempty"`
-	CreatedAt         time.Time         `json:"createdAt"`
+	Name         string            `json:"name"`
+	Status       string            `json:"status"`    // Ready/NotReady/Unknown
+	Roles        []string          `json:"roles"`     // control-plane, worker
+	Version      string            `json:"version"`   // v1.28.0
+	OSImage      string            `json:"osImage"`   // Ubuntu 22.04 LTS
+	Kernel       string            `json:"kernel"`    // 5.15.0-91-generic
+	Container    string            `json:"container"` // containerd://1.7.6
+	CPUCores     int64             `json:"cpuCores"`  // 8
+	Memory       int64             `json:"memory"`    // 16 (GB)
+	Pods         int64             `json:"pods"`      // 110
+	CreatedAt    time.Time         `json:"createdAt"`
+	Labels       map[string]string `json:"labels"`
+	Taints       []string          `json:"taints"`
+	IPAddress    string            `json:"ipAddress"`
+	Hostname     string            `json:"hostname"`
+	Architecture string            `json:"architecture"` // amd64, arm64
 }

@@ -23,16 +23,17 @@
 package cluster
 
 import (
+	"context"
 	"olixops/internal/config"
 	"olixops/internal/interfaces/http/router"
+	"olixops/internal/modules/cluster/adapter/k8s"
+	"olixops/internal/modules/cluster/handler"
 	"olixops/internal/modules/cluster/repository"
 	"olixops/internal/modules/cluster/service"
 	"olixops/internal/platform/audit"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"olixops/internal/modules/cluster/handler"
 )
 
 // Handlers 聚合 cluster 模块所有子 handler, 减少 Module 字段数。
@@ -66,53 +67,65 @@ func NewModule(h *Handlers) *Module {
 	return &Module{h: h}
 }
 
-func Assemble(db *gorm.DB, recoder audit.Recorder, k8sConfig *config.K8sConfig) (*Module, error) {
+func Assemble(ctx context.Context, db *gorm.DB, k8sConfig *config.K8sConfig, recoder audit.Recorder) (*Module, error) {
 
-	// TODO构造初始化工厂
-	//factory = adapter.Factory()
-
-	// init k8s client by async
+	repo := repository.NewClusterRepo(db)
+	factory := k8s.NewFactory(ctx, k8sConfig, repo)
 
 	// cluster handler init
-	repo := repository.NewClusterRepo(db)
-	svc := service.NewClusterService(repo, nil)
+	svc := service.NewClusterService(repo, factory)
 	clusterHandler := handler.NewClusterHandler(svc, k8sConfig)
 
 	// ns handler init
-	// TODO
+	nssvc := service.NewNamespaceService(repo, factory)
+	nsHandler := handler.NewNamespaceHandler(nssvc)
 
-	// node handler init
-	// TODO
+	// node handler
+	nodesvc := service.NewNodeService(repo, factory)
+	nodeHandler := handler.NewNodeHandler(nodesvc)
 
 	// workload handler init
 	// TODO
 
-	h := NewHandlers(clusterHandler, nil, nil, nil)
+	h := NewHandlers(
+		clusterHandler,
+		nsHandler,
+		nodeHandler,
+		nil,
+	)
 	return NewModule(h), nil
 }
 
-// Name 返回模块名, 用于启动日志。
+// Name 返回模块名, 用于启动日志
 func (m *Module) Name() string { return "cluster" }
 
 // RegisterPub cluster 没有 pub 路由, 空实现。
 func (m *Module) RegisterPub(_ *gin.RouterGroup) {}
 
 func (m *Module) RegisterPrivate(g *gin.RouterGroup) {
-	k8s := g.Group("/k8s")
+	v1 := g.Group("/v1")
 	{
-		cl := k8s.Group("/cluster")
+		k8s := v1.Group("/k8s")
 		{
-			cl.POST("/create", m.h.ClusterHandler.Create)
+			cl := k8s.Group("/cluster")
+			{
+				cl.POST("/create", m.h.ClusterHandler.Create)
+				cl.POST("/list", m.h.ClusterHandler.List)
+			}
+
+			node := k8s.Group("/node")
+			{
+				node.POST("/list", m.h.NodeHandler.List)
+			}
+
+			ns := k8s.Group("/ns")
+			{
+				ns.POST("/list", m.h.NsHandler.List)
+			}
+
 		}
-
-		//ns := k8s.Group("/ns")
-		//{
-		//
-		//}
-
 	}
-
 }
 
-// 编译期断言: Module 必须满足 router.ModuleRoutes。
+// 编译期断言: Module 必须满足 router.ModuleRoutes
 var _ router.ModuleRoutes = (*Module)(nil)

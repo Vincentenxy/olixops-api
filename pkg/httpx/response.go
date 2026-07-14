@@ -10,7 +10,7 @@ import (
 type Response[T any] struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
-	Data T      `json:"data,omitempty"`
+	Data T      `json:"data"`
 }
 
 // PagedData 包装分页返回结构。
@@ -53,6 +53,14 @@ func FailWithCode(c *gin.Context, code int, err error) {
 	c.JSON(http.StatusOK, Response[any]{
 		Code: code,
 		Msg:  err.Error(),
+		Data: nil,
+	})
+}
+
+func Unauthorized(c *gin.Context) {
+	c.JSON(http.StatusUnauthorized, Response[any]{
+		Code: CodeUnauthorized,
+		Msg:  "Unauthorized",
 		Data: nil,
 	})
 }

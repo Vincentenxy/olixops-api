@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"olixops/internal/modules/cluster/domain"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 )
 
 // K8sClient 是 cluster 模块与 K8s apiserver 通信的抽象接口。
@@ -20,12 +23,14 @@ import (
 // 实现可以是真实的 (k8s/ 子包, 调 client-go) 或 noop (noop/ 子包, 测试用)。
 // 业务代码永远不直接 import k8s.io/client-go, 只调本接口。
 type K8sClient interface {
+	GetRESTConfig() *rest.Config
+
 	// Probe 探测集群健康, 返回 (apiserver 版本, 节点数, 错误)。
 	// 用于 Cluster.Register / Cluster.Refresh。
 	Probe(ctx context.Context) (version string, nodeCount int, err error)
 
 	// ListNamespaces 列出 namespace。
-	ListNamespaces(ctx context.Context) ([]domain.Namespace, error)
+	ListNamespaces(ctx context.Context, listOptions metav1.ListOptions) ([]domain.Namespace, error)
 
 	// GetNamespace 取单个 namespace。
 	GetNamespace(ctx context.Context, name string) (*domain.Namespace, error)
@@ -65,5 +70,7 @@ type K8sClient interface {
 type Factory interface {
 	// Build 根据 base64 编码的 kubeconfig 构造 K8sClient。
 	// 每次调用都返回新实例, 因为 clientset 内部状态不共享。
-	Build(ctx context.Context, kubeconfig string) (K8sClient, error)
+	Build(ctx context.Context, cluster *domain.Cluster) (K8sClient, error)
+
+	GetK8sClient(ctx context.Context, clientId string) (K8sClient, error)
 }

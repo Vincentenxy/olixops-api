@@ -95,9 +95,9 @@ storage:
   secret_access_key: ""
   use_ssl: true
 
-
+# 加密kubeconfig 使用
 k8s_config:
-  secret_key: 1231233e32423423425423asdfasdfasdfwefewfsdf
+  secret_key: 1234567890987654321qwertyuioplkj
 
 
 

@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"olixops/internal/platform/logger"
 )
 
 // SHA256Hex 返回 hex 形式的 sha256。
@@ -22,14 +23,17 @@ func SHA256Hex(b []byte) string {
 func EncryptAESGCM(key, plaintext []byte) (string, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.L().Error(err.Error())
 		return "", err
 	}
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.L().Error(err.Error())
 		return "", err
 	}
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		logger.L().Error(err.Error())
 		return "", err
 	}
 	ct := gcm.Seal(nil, nonce, plaintext, nil)
@@ -41,17 +45,21 @@ func EncryptAESGCM(key, plaintext []byte) (string, error) {
 func DecryptAESGCM(key []byte, encoded string) ([]byte, error) {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
+		logger.L().Error(err.Error())
 		return nil, err
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.L().Error(err.Error())
 		return nil, err
 	}
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.L().Error(err.Error())
 		return nil, err
 	}
 	if len(raw) < gcm.NonceSize() {
+		logger.L().Error(err.Error())
 		return nil, errors.New("cryptox: ciphertext too short")
 	}
 	nonce, ct := raw[:gcm.NonceSize()], raw[gcm.NonceSize():]

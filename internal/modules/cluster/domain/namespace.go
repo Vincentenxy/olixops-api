@@ -17,6 +17,7 @@ const (
 type Namespace struct {
 	Name          string            `json:"name"`
 	Status        NamespaceStatus   `json:"status"`
+	UID           string            `json:"uid"`
 	Labels        map[string]string `json:"labels,omitempty"`
 	Annotations   map[string]string `json:"annotations,omitempty"`
 	CreatedAt     time.Time         `json:"createdAt"`

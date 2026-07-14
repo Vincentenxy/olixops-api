@@ -11,22 +11,22 @@ CREATE DATABASE olixops
 CREATE TYPE cluster_status AS ENUM ('unknown', 'online', 'offline', 'unreachable');
 
 -- cluster 表
-CREATE TABLE cluster (
-                         id VARCHAR(64) PRIMARY KEY,
-                         tenant_id VARCHAR(64) NOT NULL,
-                         name VARCHAR(128) NOT NULL,
-                         environment VARCHAR(32),
-                         creator_id VARCHAR(64),
-                         description TEXT,
-                         kube_config_path TEXT NOT NULL,
-                         status cluster_status NOT NULL DEFAULT 'unknown',
-                         last_probe_at TIMESTAMP NOT NULL,
-                         last_sync_at TIMESTAMP NULL,
-                         node_count INT NOT NULL DEFAULT 0,
-                         k8s_version VARCHAR(64),
-                         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                         updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                         deleted_at TIMESTAMP NULL
+CREATE TABLE clusters (
+     id VARCHAR(64) PRIMARY KEY,
+     tenant_id VARCHAR(64) NOT NULL,
+     name VARCHAR(128) NOT NULL,
+     environment VARCHAR(32),
+     creator_id VARCHAR(64),
+     description TEXT,
+     kube_config TEXT NOT NULL,
+     status cluster_status NOT NULL DEFAULT 'unknown',
+     last_probe_at TIMESTAMP NOT NULL,
+     last_sync_at TIMESTAMP NULL,
+     node_count INT NOT NULL DEFAULT 0,
+     k8s_version VARCHAR(64),
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     deleted_at TIMESTAMP NULL
 );
 
 -- 唯一索引：集群名称全局唯一
@@ -52,7 +52,7 @@ COMMENT ON COLUMN cluster.name IS '集群展示名称，全局唯一（未删除
 COMMENT ON COLUMN cluster.environment IS '环境标识：prod/test/dev/stag';
 COMMENT ON COLUMN cluster.creator_id IS '集群创建人用户ID';
 COMMENT ON COLUMN cluster.description IS '集群备注、机房、负责人、业务说明';
-COMMENT ON COLUMN cluster.kube_config_path IS 'kubeconfig 在envvault中的访问位置';
+COMMENT ON COLUMN cluster.kube_config IS 'kubeconfig加密后的内容';
 COMMENT ON COLUMN cluster.status IS '集群连通状态枚举：unknown/online/offline/unreachable';
 COMMENT ON COLUMN cluster.last_probe_at IS '最后一次集群连通性探测时间，非空';
 COMMENT ON COLUMN cluster.last_sync_at IS '最后同步节点数量、K8s版本缓存时间，未同步为NULL';
